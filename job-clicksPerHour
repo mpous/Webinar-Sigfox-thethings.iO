@@ -1,0 +1,60 @@
+function job(params, callback)
+{
+  console.log("Checking clicks last hour...");
+
+  async.waterfall([
+      getProductThings
+  ], callback);
+}
+
+
+function getProductThings(callback){
+  
+  thethingsAPI.getProductThings((err, things) => {
+    
+    async.eachLimit(things, 10, function(thing, next){
+
+    countClicksLastHour(thing, next);
+
+    },function(err) {
+      if(err) return callback(err);
+      
+      callback();
+    });
+  });
+}
+
+function countClicksLastHour(thing, callback)
+{
+    var startClick = moment().startOf('hour').subtract(1, 'hours');
+    var endClick = moment().endOf('hour').subtract(1, 'hours');
+    var options = {
+        lib: 'panel',
+        startDate: startClick.toJSON(),
+        endDate: endClick.toJSON(),
+        limit: 100
+    };
+
+    thethingsAPI.thingRead(thing.thingToken, "status_num", options, function(err, result){
+      if (err) return callback(err);
+      if (!result) return callback();
+
+      let total = 0;
+      for(let i = 0; i<result.length; i++){
+        total = total + result[i].value;
+      }
+
+      //WRITE
+      let params = {'lib':'panel'};
+      let values = {'values':[{'key': 'clicksHour', 'value': total}]};
+      
+      console.log(values);
+
+      thethingsAPI.thingWrite(thing.thingToken, values, params, function(err, result){
+        if (err) return callback(err);
+        if (result.status === 'error') return callback(err);
+        callback();
+      });     
+
+    });
+}
